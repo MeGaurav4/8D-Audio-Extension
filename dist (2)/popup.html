@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>8D Audio Converter</title>
+  <style>
+    body {
+      width: 250px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+      background-color: #1e1e1e; /* Dark background */
+      color: #f0f0f0; /* Light text */
+    }
+    h1 {
+      font-size: 18px;
+      color: #ffffff; /* White heading */
+      margin-bottom: 15px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      background-color: #ddff00ea; 
+      color: #1e1e1e; 
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.1s;
+    }
+    button:hover {
+      background-color: #dfff00ea;  
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    input[type="range"] {
+      width: 100%;
+      margin-top: 10px;
+      background-color: #333; /* Dark background for slider */
+    }
+    .value-display {
+      font-weight: bold;
+    }
+    #controls {
+      display: none;
+      margin-top: 15px;
+      transition: opacity 0.3s;
+      opacity: 0;
+    }
+    #controls.visible {
+      display: block;
+      opacity: 1;
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+      cursor: help;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 120px;
+      background-color: #555;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -60px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    .control-group {
+      margin-bottom: 10px; /* Reduced space below each control group */
+    }
+    #resetControls {
+      margin-top: 10px; /* Adjusted margin-top for better positioning */
+    }
+  </style>
+</head>
+<body>
+  <h1>8D Audio Converter</h1>
+  <button id="toggle">Enable 8D Audio</button>
+  <button id="editControls">Edit Controls</button>
+  <div id="controls">
+    <div class="control-group">
+      <label for="intensity">Effect Intensity:</label>
+      <input type="range" id="intensity" min="0.5" max="3" step="0.1" value="1.5">
+      <span id="intensityValue" class="value-display">1.5</span>
+      <span class="tooltip">&#9432;
+        <span class="tooltiptext">Adjusts the width of the 8D effect</span>
+      </span>
+    </div>
+    <div class="control-group">
+      <label for="rotationSpeed">Rotation Speed:</label>
+      <input type="range" id="rotationSpeed" min="0.01" max="0.1" step="0.01" value="0.02">
+      <span id="rotationSpeedValue" class="value-display">0.02</span>
+      <span class="tooltip">&#9432;
+        <span class="tooltiptext">Controls how fast the sound rotates</span>
+      </span>
+    </div>
+    <button id="resetControls">Reset to Defaults</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
