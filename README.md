@@ -1,37 +1,36 @@
-# 8D Audio Converter
+# 8D Audio Extension
+> Transform YouTube into an immersive 8D audio experience
+
+```
+╔══════════════════════════════════════════════╗
+║   🎧 8D Audio · YouTube · YouTube Music     🎧 ║
+║      spatial · smooth · immersive           ║
+╚══════════════════════════════════════════════╝
+```
 
 ## Overview
-
-The **8D Audio Converter** is a Chrome extension that allows users to convert audio from YouTube into an immersive 8D audio experience in real-time. This extension enhances the listening experience by creating a spatial audio effect that simulates sound moving around the listener.
+A Chrome extension that processes YouTube and YouTube Music audio in real time using the Web Audio API's PannerNode, creating a smooth rotating 8D effect that makes listeners feel the sound moving around them.
 
 ## Features
+- Real-time spatial audio processing on any YouTube video
+- Adjustable rotation speed and intensity
+- Works on YouTube Music
+- Lightweight — no external services, all client-side
 
-- Convert current audio to 8D audio in real-time.
-- Works seamlessly with YouTube and YouTube Music.
-- User-friendly interface with simple controls.
+## Tech Stack
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black) ![WebAudio](https://img.shields.io/badge/Web_Audio_API-000000?style=flat-square) ![Chrome](https://img.shields.io/badge/Chrome_Extension-4285F4?style=flat-square&logo=google-chrome&logoColor=white) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ## Installation
-
-1. Download the extension files.
-2. Open Chrome and navigate to `chrome://extensions/`.
-3. Enable "Developer mode" in the top right corner.
-4. Click on "Load unpacked" and select the directory where the extension files are located.
-5. The extension should now be installed and ready to use.
+1. Clone this repo
+2. Open Chrome → `chrome://extensions`
+3. Enable "Developer mode"
+4. Click "Load unpacked" → select this repo folder
 
 ## Usage
+- Open any YouTube video
+- Click the extension icon
+- Toggle 8D audio on
+- Adjust speed/intensity to taste
 
-1. Navigate to a YouTube video or YouTube Music track.
-2. Click on the 8D Audio Converter extension icon in the Chrome toolbar.
-3. Use the provided controls to adjust the audio settings and enjoy the 8D audio experience.
-
-## Permissions
-
-The extension requires the following permissions:
-
-- `activeTab`: To access the current tab's content.
-- `scripting`: To execute scripts in the context of the web page.
-- `storage`: To store user preferences.
-
-## Manifest File
-
-The extension is defined in the `manifest.json` file, which includes metadata about the extension, permissions, and background scripts.
+## License
+MIT
