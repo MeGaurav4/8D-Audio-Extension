@@ -20,7 +20,14 @@ require("fs").writeFileSync("build/tmp/firefox/manifest.json", JSON.stringify(m,
 for t in chrome firefox; do
   OUT="$PWD/build/8d-audio-converter-v${VERSION}-${t}.zip"
   rm -f "$OUT"
-  (cd build/tmp/$t && zip -qr "$OUT" .)
+  if [ "$t" = chrome ]; then
+    # Chrome loads a folder: put everything inside one, so unzipping makes it.
+    mv build/tmp/chrome "build/tmp/8d-audio-converter-v${VERSION}"
+    (cd build/tmp && zip -qr "$OUT" "8d-audio-converter-v${VERSION}")
+  else
+    # Firefox loads the zip itself: manifest must sit at the root.
+    (cd build/tmp/$t && zip -qr "$OUT" .)
+  fi
   echo "Built build/$(basename "$OUT")"
 done
 rm -rf build/tmp
