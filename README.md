@@ -9,13 +9,14 @@
 ```
 
 ## Overview
-A Chrome extension that processes YouTube and YouTube Music audio in real time using the Web Audio API's PannerNode, creating a smooth rotating 8D effect that makes listeners feel the sound moving around them.
+A Chrome extension that processes YouTube and YouTube Music audio in real time using the Web Audio API's HRTF PannerNode, driven by audio-thread oscillators, creating a smooth rotating 8D effect that makes listeners feel the sound moving around them.
 
 ## Features
-- Real-time spatial audio processing on any YouTube video
-- Adjustable rotation speed and intensity
-- Works on YouTube Music
-- Lightweight — no external services, all client-side
+- Real-time spatial audio on any YouTube video and on YouTube Music
+- Perfectly smooth rotation, even in a background tab
+- Adjustable intensity and rotation speed (shown as seconds per lap), steady volume
+- Clean on/off: off means the original sound
+- Lightweight, no external services, all client-side
 
 ## Tech Stack
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black) ![WebAudio](https://img.shields.io/badge/Web_Audio_API-000000?style=flat-square) ![Chrome](https://img.shields.io/badge/Chrome_Extension-4285F4?style=flat-square&logo=google-chrome&logoColor=white) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
@@ -25,6 +26,10 @@ A Chrome extension that processes YouTube and YouTube Music audio in real time u
 2. Open Chrome → `chrome://extensions`
 3. Enable "Developer mode"
 4. Click "Load unpacked" → select this repo folder
+
+## Development
+- `npm install` then `npm test` renders audio offline and checks the effect (uses the free `node-web-audio-api`)
+- `npm run build` makes `build/8d-audio-converter-v<version>.zip`
 
 ## Usage
 - Open any YouTube video

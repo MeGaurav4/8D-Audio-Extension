@@ -1,117 +1,115 @@
-let audioContext;
-let sourceNode;
-let pannerNode;
-let isEnabled = false;
-let angle = 0;
-let intensity = 1.5;
-let rotationSpeed = 0.02;
-let intervalId;
+// Content script: connects the page's <video>/<audio> to the 8D engine and answers the popup.
+(function () {
+  'use strict';
+  if (window.__eightDAudioLoaded) return; // never run twice in the same page
+  window.__eightDAudioLoaded = true;
 
-chrome.storage.sync.get(['intensity', 'rotationSpeed'], function(result) {
-  intensity = result.intensity || 1.5;
-  rotationSpeed = result.rotationSpeed || 0.02;
-});
+  const { createEngine, DEFAULTS } = window.EightDEngine;
 
-function initializeAudioNodes() {
-  if (audioContext) return true;
+  let audioContext = null;
+  let bus = null; // every media element feeds this
+  let engine = null;
+  const connected = new WeakSet();
+  let intensity = DEFAULTS.intensity;
+  let rotationSpeed = DEFAULTS.rotationSpeed;
 
-  console.log('Initializing audio nodes');
-  let audioElement = document.querySelector('audio, video');
+  chrome.storage.sync.get(['intensity', 'rotationSpeed'], (result) => {
+    intensity = result.intensity || DEFAULTS.intensity;
+    rotationSpeed = result.rotationSpeed || DEFAULTS.rotationSpeed;
+    if (engine) {
+      engine.setIntensity(intensity);
+      engine.setRotationSpeed(rotationSpeed);
+    }
+  });
 
-  if (!audioElement) {
-    console.error('No audio or video element found on the page');
+  // chrome.storage.sync allows ~120 writes a minute; sliders fire far more, so batch them.
+  let saveTimer = null;
+  function saveSoon() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => chrome.storage.sync.set({ intensity, rotationSpeed }), 400);
+  }
+
+  function findMedia() {
+    const all = Array.from(document.querySelectorAll('video, audio'));
+    return (
+      document.querySelector('video.html5-main-video') ||
+      all.find((m) => !m.paused) ||
+      all[0] ||
+      null
+    );
+  }
+
+  function ensureGraph() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      bus = audioContext.createGain();
+      engine = createEngine(audioContext, bus, audioContext.destination);
+      engine.setIntensity(intensity);
+      engine.setRotationSpeed(rotationSpeed);
+    }
+    const media = findMedia();
+    if (!media) return false;
+    if (!connected.has(media)) {
+      try {
+        audioContext.createMediaElementSource(media).connect(bus);
+        connected.add(media);
+        media.addEventListener('play', () => audioContext.resume());
+      } catch (e) {
+        console.warn('[8D Audio] could not attach to media element:', e);
+        return connected.size > 0;
+      }
+    }
+    return true;
+  }
+
+  function enable() {
+    if (!ensureGraph()) {
+      console.warn('[8D Audio] no audio or video element on this page yet');
+      return false;
+    }
+    audioContext.resume();
+    return engine.setEnabled(true);
+  }
+
+  function disable() {
+    if (engine) engine.setEnabled(false);
     return false;
   }
 
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  sourceNode = audioContext.createMediaElementSource(audioElement);
-  pannerNode = audioContext.createPanner();
-  
-  pannerNode.panningModel = 'HRTF';
-  pannerNode.distanceModel = 'inverse';
-  pannerNode.refDistance = 1;
-  pannerNode.maxDistance = 10000;
-  pannerNode.rolloffFactor = 1;
-  pannerNode.coneInnerAngle = 360;
-  pannerNode.coneOuterAngle = 0;
-  pannerNode.coneOuterGain = 0;
-  
-  sourceNode.connect(pannerNode);
-  pannerNode.connect(audioContext.destination);
+  // YouTube swaps pages without reloading; re-attach if a new player shows up.
+  const observer = new MutationObserver(() => {
+    if (engine && engine.enabled) ensureGraph();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  console.log('Audio nodes initialized');
-  return true;
-}
-
-function enable8DAudio() {
-  console.log('Enabling 8D Audio');
-  if (!audioContext || !sourceNode || !pannerNode) {
-    if (!initializeAudioNodes()) {
-      console.error('Failed to initialize audio nodes');
-      return false;
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    switch (request.action) {
+      case 'toggle': {
+        const on = engine && engine.enabled ? disable() : enable();
+        sendResponse({ enabled: on });
+        break;
+      }
+      case 'getState':
+        sendResponse({ enabled: !!(engine && engine.enabled), intensity, rotationSpeed });
+        break;
+      case 'setIntensity':
+        intensity = request.value;
+        if (engine) engine.setIntensity(intensity);
+        saveSoon();
+        sendResponse({ ok: true });
+        break;
+      case 'getIntensity':
+        sendResponse({ intensity });
+        break;
+      case 'setRotationSpeed':
+        rotationSpeed = request.value;
+        if (engine) engine.setRotationSpeed(rotationSpeed);
+        saveSoon();
+        sendResponse({ ok: true });
+        break;
+      default:
+        return false;
     }
-  }
-
-  audioContext.resume();
-  isEnabled = true;
-  angle = 0;
-  if (intervalId) {
-    clearInterval(intervalId);
-  }
-  intervalId = setInterval(applyEffect, 16);
-  console.log('8D Audio enabled');
-  return true;
-}
-
-function disable8DAudio() {
-  console.log('Disabling 8D Audio');
-  if (audioContext) {
-    clearInterval(intervalId);
-    intervalId = null;
-    if (pannerNode) {
-      pannerNode.positionX.setValueAtTime(0, audioContext.currentTime);
-      pannerNode.positionZ.setValueAtTime(0, audioContext.currentTime);
-    }
-    isEnabled = false;
-    console.log('8D Audio disabled');
-  }
-}
-
-function applyEffect() {
-  if (isEnabled && pannerNode) {
-    angle += rotationSpeed;
-    if (angle > Math.PI * 2) {
-      angle = 0;
-    }
-    
-    const x = Math.cos(angle) * intensity;
-    const z = Math.sin(angle) * intensity;
-    
-    pannerNode.positionX.setValueAtTime(x, audioContext.currentTime);
-    pannerNode.positionZ.setValueAtTime(z, audioContext.currentTime);
-  }
-}
-
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  console.log('Message received:', request);
-  if (request.action === 'toggle') {
-    const newState = isEnabled ? disable8DAudio() : enable8DAudio();
-    sendResponse({enabled: newState});
-  } else if (request.action === 'getState') {
-    sendResponse({enabled: isEnabled, intensity: intensity, rotationSpeed: rotationSpeed});
-  } else if (request.action === 'setIntensity') {
-    intensity = request.value;
-    chrome.storage.sync.set({ intensity: request.value });
-  } else if (request.action === 'getIntensity') {
-    sendResponse({intensity: intensity});
-  } else if (request.action === 'setRotationSpeed') {
-    rotationSpeed = request.value;
-    chrome.storage.sync.set({ rotationSpeed: request.value });
-  }
-  return true;
-});
-
-console.log('Content script loaded');
-
-logAudioState();
-
+    return false; // all responses above are synchronous
+  });
+})();

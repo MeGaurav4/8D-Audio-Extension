@@ -1,18 +1,15 @@
 {
   "name": "8d-audio-extension",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "1.1.0",
+  "description": "Chrome extension that turns YouTube and YouTube Music audio into smooth 8D audio",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+    "test": "node --test tests/*.test.js",
+    "build": "bash scripts/build.sh"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "MeGaurav4",
+  "license": "MIT",
   "devDependencies": {
-    "copy-webpack-plugin": "^12.0.2",
-    "webpack": "^5.94.0",
-    "webpack-cli": "^5.1.4"
+    "node-web-audio-api": "^2.2.0"
   }
 }

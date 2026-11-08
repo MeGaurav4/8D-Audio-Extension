@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
   const toggleButton = document.getElementById('toggle');
   const editControlsButton = document.getElementById('editControls');
   const controlsDiv = document.getElementById('controls');
@@ -6,104 +6,95 @@ document.addEventListener('DOMContentLoaded', function() {
   const intensityValue = document.getElementById('intensityValue');
   const rotationSpeedSlider = document.getElementById('rotationSpeed');
   const rotationSpeedValue = document.getElementById('rotationSpeedValue');
+  const lapValue = document.getElementById('lapValue');
   const resetButton = document.getElementById('resetControls');
-  const infoIcon = document.getElementById('info-icon');
-  const infoText = document.getElementById('info-text');
 
-  const defaultIntensity = 1.5;
-  const defaultRotationSpeed = 0.02;
+  const DEFAULT_INTENSITY = 1.5;
+  const DEFAULT_SPEED = 0.02;
+  const isYouTube = (url) => !!url && /^https:\/\/([a-z0-9-]+\.)*youtube\.com\//.test(url);
+  const lapSeconds = (speed) => (2 * Math.PI * 0.016) / speed;
+
+  let tabId = null;
 
   function updateButtonText(enabled) {
     toggleButton.textContent = enabled ? 'Disable 8D Audio' : 'Enable 8D Audio';
+    toggleButton.classList.toggle('on', !!enabled);
   }
 
-  function updateControls(intensity, rotationSpeed) {
+  function updateControls(intensity, speed) {
     intensitySlider.value = intensity;
     intensityValue.textContent = intensity;
-    rotationSpeedSlider.value = rotationSpeed;
-    rotationSpeedValue.textContent = rotationSpeed;
+    rotationSpeedSlider.value = speed;
+    rotationSpeedValue.textContent = speed;
+    lapValue.textContent = lapSeconds(speed).toFixed(1) + 's per lap';
   }
 
-  function saveSettings(intensity, rotationSpeed) {
-    chrome.storage.sync.set({ intensity, rotationSpeed });
-  }
-
-  function resetControls() {
-    updateControls(defaultIntensity, defaultRotationSpeed);
-    saveSettings(defaultIntensity, defaultRotationSpeed);
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {
-        action: 'setIntensity',
-        value: defaultIntensity
-      });
-      chrome.tabs.sendMessage(tabs[0].id, {
-        action: 'setRotationSpeed',
-        value: defaultRotationSpeed
+  function send(message) {
+    return new Promise((resolve) => {
+      chrome.tabs.sendMessage(tabId, message, (response) => {
+        if (chrome.runtime.lastError) resolve(null);
+        else resolve(response);
       });
     });
   }
 
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    const url = tabs[0].url;
-    if (url && (url.includes('youtube.com') || url.includes('music.youtube.com'))) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: 'getState'}, function(response) {
-        if (chrome.runtime.lastError) {
-          console.error('Error:', chrome.runtime.lastError);
-          toggleButton.textContent = 'Error: Refresh the page';
-          toggleButton.disabled = true;
-        } else {
-          updateButtonText(response.enabled);
-          chrome.storage.sync.get(['intensity', 'rotationSpeed'], function(result) {
-            const intensity = result.intensity || defaultIntensity;
-            const rotationSpeed = result.rotationSpeed || defaultRotationSpeed;
-            updateControls(intensity, rotationSpeed);
-          });
-        }
-      });
-    } else {
+  // If the page was open before the extension loaded, inject the scripts and try again
+  // instead of asking the user to refresh.
+  async function getStateOrInject() {
+    let state = await send({ action: 'getState' });
+    if (state) return state;
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ['engine.js', 'content.js'] });
+      state = await send({ action: 'getState' });
+    } catch (e) {
+      state = null;
+    }
+    return state;
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    const tab = tabs[0];
+    if (!tab || !isYouTube(tab.url)) {
       toggleButton.textContent = 'Not available on this page';
       toggleButton.disabled = true;
       editControlsButton.style.display = 'none';
+      return;
     }
+    tabId = tab.id;
+    const state = await getStateOrInject();
+    if (!state) {
+      toggleButton.textContent = 'Error: Refresh the page';
+      toggleButton.disabled = true;
+      return;
+    }
+    updateButtonText(state.enabled);
+    updateControls(state.intensity || DEFAULT_INTENSITY, state.rotationSpeed || DEFAULT_SPEED);
   });
 
-  toggleButton.addEventListener('click', function() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: 'toggle'}, function(response) {
-        if (chrome.runtime.lastError) {
-          console.error('Error:', chrome.runtime.lastError);
-        } else {
-          updateButtonText(response.enabled);
-        }
-      });
-    });
+  toggleButton.addEventListener('click', async () => {
+    const response = await send({ action: 'toggle' });
+    if (response) updateButtonText(response.enabled);
   });
 
-  editControlsButton.addEventListener('click', function() {
+  editControlsButton.addEventListener('click', () => {
     controlsDiv.classList.toggle('visible');
   });
 
-  intensitySlider.addEventListener('input', function() {
+  intensitySlider.addEventListener('input', function () {
     const value = parseFloat(this.value);
     intensityValue.textContent = value;
-    saveSettings(value, parseFloat(rotationSpeedSlider.value));
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: 'setIntensity', value: value});
-    });
+    send({ action: 'setIntensity', value });
   });
 
-  rotationSpeedSlider.addEventListener('input', function() {
+  rotationSpeedSlider.addEventListener('input', function () {
     const value = parseFloat(this.value);
-    rotationSpeedValue.textContent = value;
-    saveSettings(parseFloat(intensitySlider.value), value);
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: 'setRotationSpeed', value: value});
-    });
+    updateControls(parseFloat(intensitySlider.value), value);
+    send({ action: 'setRotationSpeed', value });
   });
 
-  resetButton.addEventListener('click', resetControls);
-
-  infoIcon.addEventListener('click', function() {
-    infoText.style.display = infoText.style.display === 'none' ? 'block' : 'none';
+  resetButton.addEventListener('click', () => {
+    updateControls(DEFAULT_INTENSITY, DEFAULT_SPEED);
+    send({ action: 'setIntensity', value: DEFAULT_INTENSITY });
+    send({ action: 'setRotationSpeed', value: DEFAULT_SPEED });
   });
 });

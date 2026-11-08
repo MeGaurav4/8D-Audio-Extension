@@ -79,6 +79,16 @@
     .control-group {
       margin-bottom: 10px;
     }
+    .hint {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 4px;
+    }
+    #toggle.on {
+      background-color: #1e1e1e;
+      color: #ddff00;
+      outline: 1px solid #ddff00;
+    }
     #resetControls {
       margin-top: 10px;
     }
@@ -104,6 +114,7 @@
       <span class="tooltip">&#9432;
         <span class="tooltiptext">Controls how fast the sound rotates</span>
       </span>
+      <div id="lapValue" class="hint">5.0s per lap</div>
     </div>
     <button id="resetControls">Reset to Defaults</button>
   </div>
