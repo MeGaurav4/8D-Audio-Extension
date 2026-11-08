@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.0.0
+Your v1 sound is still the default: it's the **Classic 8D** preset.
+
+**New**
+- **Presets:** Classic 8D, Slow orbit, Fast spin, Concert hall, Lo-fi room, Halo, Ping-pong.
+- **Reverb**, the missing ingredient of real 8D songs.
+- **Movement patterns:** Circle, Figure 8, Side to side, Halo (rises and falls), Wander.
+- **Equalizer:** bass, mid, treble (±12 dB).
+- **Beat sync:** lock a lap to the song's BPM (4/8/16/32 beats per lap), with tap tempo.
+- **Live visualizer:** a dot shows where the sound is around your head.
+- **Any site:** turn 8D on for any site from the popup (Spotify-style DRM sites are detected and refused instead of going silent).
+- **Per-site memory:** remember settings for one site, and auto-start 8D there.
+- **Keyboard shortcut:** Alt+Shift+8 toggles 8D (change it at chrome://extensions/shortcuts). Icon badge shows when it's on.
+- **File converter:** drop songs in, get 8D WAV files back. Runs fully offline in the browser, batch friendly, with preview.
+- **Firefox build** (Firefox 128+).
+- Moving sound now comes back to roughly the original loudness, with a soft limiter to stop clipping.
+
+**Kept**
+- Same toggle, Edit Controls, intensity and speed sliders, Reset to Defaults.
+- Saved v1/v1.1 settings carry over.
+
+**Dev**
+- 21 automated tests (`npm test`): offline audio renders for every pattern, reverb, EQ, WAV export, and the page script's message flow.
+- `npm run build` makes Chrome and Firefox zips.
+
 ## v1.1.0
 Same extension, same buttons and sliders, just working properly.
 

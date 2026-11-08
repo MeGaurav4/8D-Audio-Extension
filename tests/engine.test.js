@@ -53,3 +53,79 @@ test('on = sound moves between ears, loudness roughly steady', opts, async () =>
   const ratio = Math.max(...loud) / Math.min(...loud);
   assert.ok(ratio < 3, 'loudness swing too big: ' + ratio.toFixed(2));
 });
+
+const { PATTERNS, PRESETS, positionAt, bpmToSpeed } = require('../engine.js');
+
+test('Classic preset is the v1 sound', () => {
+  const c = PRESETS.classic;
+  assert.strictEqual(c.intensity, 1.5);
+  assert.strictEqual(c.rotationSpeed, 0.02);
+  assert.strictEqual(c.pattern, 'circle');
+  assert.strictEqual(c.reverb, 0);
+});
+
+test('every preset uses a real pattern', () => {
+  for (const p of Object.values(PRESETS)) assert.ok(PATTERNS[p.pattern], p.label);
+});
+
+test('BPM sync: 120 bpm, 8 beats per lap = 4 s lap', () => {
+  assert.ok(Math.abs(secondsPerLap(bpmToSpeed(120, 8)) - 4) < 1e-9);
+});
+
+test('circle pattern goes all the way round', () => {
+  const a = positionAt('circle', 0), b = positionAt('circle', Math.PI / 2);
+  assert.ok(Math.abs(a.x - 1) < 1e-9 && Math.abs(b.z - 1) < 1e-9);
+});
+
+for (const name of Object.keys(PATTERNS)) {
+  test(`pattern ${name} renders, moves, stays sane`, opts, async () => {
+    const [L, R] = await render(5, (e) => { e.set({ pattern: name, rotationSpeed: 0.05, intensity: 3 }); e.setEnabled(true); });
+    const w = windows(L, R, SR / 10);
+    const bal = w.map(([l, r]) => (l - r) / (l + r + 1e-9));
+    assert.ok(Math.max(...bal) - Math.min(...bal) > 0.3, 'sound should move');
+    for (let i = 0; i < L.length; i += 101) assert.ok(Number.isFinite(L[i]) && Math.abs(L[i]) < 2);
+  });
+}
+
+test('reverb adds a tail after the sound stops', opts, async () => {
+  const tail = async (reverb) => {
+    const ctx = new WA.OfflineAudioContext(2, SR * 3, SR);
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.connect(env);
+    const e = createEngine(ctx, env, ctx.destination);
+    e.set({ reverb }); e.setEnabled(true);
+    osc.start(); osc.stop(1);
+    const b = await ctx.startRendering();
+    return rms(b.getChannelData(0), Math.floor(SR * 1.3), Math.floor(SR * 1.8));
+  };
+  const dry = await tail(0), wet = await tail(0.8);
+  assert.ok(wet > dry * 10 && wet > 0.005, `tail ${wet} vs ${dry}`);
+});
+
+test('bass boost makes lows louder', opts, async () => {
+  const low = async (bass) => {
+    const ctx = new WA.OfflineAudioContext(2, SR * 2, SR);
+    const osc = ctx.createOscillator(); osc.frequency.value = 60;
+    const quiet = ctx.createGain(); quiet.gain.value = 0.05; osc.connect(quiet);
+    const e = createEngine(ctx, quiet, ctx.destination);
+    e.set({ bass }); e.setEnabled(true); osc.start();
+    const b = await ctx.startRendering();
+    return rms(b.getChannelData(0), SR, 2 * SR) + rms(b.getChannelData(1), SR, 2 * SR);
+  };
+  assert.ok(await low(9) > (await low(0)) * 1.8);
+});
+
+test('file conversion: render + WAV encode', opts, async () => {
+  const { encodeWav } = require('../wav.js');
+  const SR2 = 16000;
+  const ctx = new WA.OfflineAudioContext(2, SR2 * 2, SR2);
+  const osc = ctx.createOscillator();
+  const e = createEngine(ctx, osc, ctx.destination);
+  e.set(PRESETS.hall); e.setEnabled(true); osc.start();
+  const out = await ctx.startRendering();
+  const wav = new DataView(encodeWav(out));
+  assert.strictEqual(String.fromCharCode(wav.getUint8(0), wav.getUint8(1), wav.getUint8(2), wav.getUint8(3)), 'RIFF');
+  assert.strictEqual(wav.getUint32(24, true), SR2);
+  assert.strictEqual(wav.byteLength, 44 + SR2 * 2 * 2 * 2);
+});

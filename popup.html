@@ -1,123 +1,124 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>8D Audio Converter</title>
   <style>
-    body {
-      width: 250px;
-      padding: 15px;
-      font-family: Arial, sans-serif;
-      background-color: #1e1e1e;
-      color: #f0f0f0;
-    }
-    h1 {
-      font-size: 18px;
-      color: #ffffff;
-      margin-bottom: 15px;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      background-color: #ddff00ea; 
-      color: #1e1e1e; 
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.3s, transform 0.1s;
-    }
-    button:hover {
-      background-color: #dfff00ea;  
-    }
-    button:active {
-      transform: scale(0.98);
-    }
-    input[type="range"] {
-      width: 100%;
-      margin-top: 10px;
-      background-color: #333;
-    }
-    .value-display {
-      font-weight: bold;
-    }
-    #controls {
-      display: none;
-      margin-top: 15px;
-      transition: opacity 0.3s;
-      opacity: 0;
-    }
-    #controls.visible {
-      display: block;
-      opacity: 1;
-    }
-    .tooltip {
-      position: relative;
-      display: inline-block;
-      margin-left: 5px;
-      cursor: help;
-    }
-    .tooltip .tooltiptext {
-      visibility: hidden;
-      width: 120px;
-      background-color: #555;
-      color: #fff;
-      text-align: center;
-      border-radius: 6px;
-      padding: 5px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -60px;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-      opacity: 1;
-    }
-    .control-group {
-      margin-bottom: 10px;
-    }
-    .hint {
-      font-size: 11px;
-      color: #aaa;
-      margin-top: 4px;
-    }
-    #toggle.on {
-      background-color: #1e1e1e;
-      color: #ddff00;
-      outline: 1px solid #ddff00;
-    }
-    #resetControls {
-      margin-top: 10px;
-    }
+    :root { --bg: #1e1e1e; --card: #2a2a2a; --line: #3a3a3a; --text: #f0f0f0; --dim: #a8a8a8; --lime: #ddff00; }
+    * { box-sizing: border-box; }
+    body { width: 300px; margin: 0; padding: 14px; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+    h1 { font-size: 17px; margin: 0; }
+    .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .host { color: var(--dim); font-size: 11px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    button { width: 100%; padding: 10px; margin-top: 8px; background: var(--lime); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: transform 0.1s, background 0.2s; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.55; cursor: default; }
+    button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: normal; }
+    #toggle { font-size: 15px; padding: 12px; }
+    #toggle.on { background: var(--bg); color: var(--lime); outline: 2px solid var(--lime); }
+    .error { color: #ffb4a8; font-size: 11px; margin-top: 6px; display: none; }
+    .error.show { display: block; }
+    canvas { display: block; margin: 10px auto 2px; background: var(--card); border-radius: 50%; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip { width: auto; margin: 0; padding: 5px 9px; border-radius: 14px; background: var(--card); color: var(--text); border: 1px solid var(--line); font-weight: normal; font-size: 12px; }
+    .chip.active { background: var(--lime); color: var(--bg); border-color: var(--lime); }
+    #controls { display: none; margin-top: 10px; }
+    #controls.visible { display: block; }
+    .section { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+    .section-title { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .control-group { margin-bottom: 8px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    label { font-size: 12px; }
+    input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--lime); }
+    select, input[type="number"] { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 5px; font-size: 12px; }
+    input[type="number"] { width: 58px; }
+    input[type="checkbox"] { accent-color: var(--lime); }
+    .value-display { font-weight: bold; font-size: 12px; }
+    .hint { font-size: 11px; color: var(--dim); margin-top: 3px; }
+    .tooltip { position: relative; display: inline-block; margin-left: 3px; cursor: help; color: var(--dim); }
+    .tooltip .tooltiptext { visibility: hidden; width: 150px; background: #555; color: #fff; text-align: center; border-radius: 6px; padding: 5px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -75px; opacity: 0; transition: opacity 0.3s; font-size: 11px; }
+    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    .checks label { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+    .footer { display: flex; justify-content: space-between; margin-top: 10px; color: var(--dim); font-size: 11px; }
+    kbd { background: var(--card); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 10px; }
   </style>
 </head>
 <body>
-  <h1>8D Audio Converter</h1>
+  <div class="top">
+    <h1>8D Audio Converter</h1>
+    <span id="host" class="host"></span>
+  </div>
+
   <button id="toggle">Enable 8D Audio</button>
-  <button id="editControls">Edit Controls</button>
+  <button id="enableSite" class="ghost" style="display:none">Use 8D on this site</button>
+  <div id="error" class="error"></div>
+
+  <div id="live">
+    <canvas id="viz" width="120" height="120" title="Where the sound is around your head"></canvas>
+    <div class="chips" id="presets"></div>
+    <button id="editControls" class="ghost">Edit Controls</button>
+  </div>
+
   <div id="controls">
     <div class="control-group">
-      <label for="intensity">Effect Intensity:</label>
+      <div class="row">
+        <label for="intensity">Effect Intensity:<span class="tooltip">&#9432;<span class="tooltiptext">How strongly the sound circles you</span></span></label>
+        <span id="intensityValue" class="value-display">1.5</span>
+      </div>
       <input type="range" id="intensity" min="0.5" max="3" step="0.1" value="1.5">
-      <span id="intensityValue" class="value-display">1.5</span>
-      <span class="tooltip">&#9432;
-        <span class="tooltiptext">Adjusts the width of the 8D effect</span>
-      </span>
     </div>
     <div class="control-group">
-      <label for="rotationSpeed">Rotation Speed:</label>
-      <input type="range" id="rotationSpeed" min="0.01" max="0.1" step="0.01" value="0.02">
-      <span id="rotationSpeedValue" class="value-display">0.02</span>
-      <span class="tooltip">&#9432;
-        <span class="tooltiptext">Controls how fast the sound rotates</span>
-      </span>
+      <div class="row">
+        <label for="rotationSpeed">Rotation Speed:<span class="tooltip">&#9432;<span class="tooltiptext">Controls how fast the sound rotates</span></span></label>
+        <span id="rotationSpeedValue" class="value-display">0.02</span>
+      </div>
+      <input type="range" id="rotationSpeed" min="0.005" max="0.1" step="0.005" value="0.02">
       <div id="lapValue" class="hint">5.0s per lap</div>
     </div>
-    <button id="resetControls">Reset to Defaults</button>
+    <div class="control-group">
+      <div class="row">
+        <label><input type="checkbox" id="syncBpm"> Sync to beat</label>
+        <span><input type="number" id="bpm" min="40" max="220" value="120"> BPM</span>
+      </div>
+      <div class="row hint">
+        <span>Beats per lap
+          <select id="beatsPerLap"><option>4</option><option selected>8</option><option>16</option><option>32</option></select>
+        </span>
+        <button id="tap" class="chip" style="margin:0">Tap tempo</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="row">
+        <label for="pattern">Movement</label>
+        <select id="pattern"></select>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="row"><label for="reverb">Reverb</label><span id="reverbValue" class="value-display">0%</span></div>
+      <input type="range" id="reverb" min="0" max="1" step="0.05" value="0">
+    </div>
+
+    <div class="section">
+      <div class="section-title">Equalizer</div>
+      <div class="control-group"><div class="row"><label for="bass">Bass</label><span id="bassValue" class="value-display">0 dB</span></div><input type="range" id="bass" min="-12" max="12" step="1" value="0"></div>
+      <div class="control-group"><div class="row"><label for="mid">Mid</label><span id="midValue" class="value-display">0 dB</span></div><input type="range" id="mid" min="-12" max="12" step="1" value="0"></div>
+      <div class="control-group"><div class="row"><label for="treble">Treble</label><span id="trebleValue" class="value-display">0 dB</span></div><input type="range" id="treble" min="-12" max="12" step="1" value="0"></div>
+    </div>
+
+    <div class="section checks">
+      <label><input type="checkbox" id="perSite"> Remember settings for this site</label>
+      <label><input type="checkbox" id="autoStart"> Turn on automatically on this site</label>
+    </div>
+
+    <button id="resetControls" class="ghost">Reset to Defaults</button>
   </div>
+
+  <button id="openConverter" class="ghost">Convert a song file to 8D</button>
+  <div class="footer">
+    <span>Shortcut <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>8</kbd></span>
+    <span>v2.0</span>
+  </div>
+  <script src="engine.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
