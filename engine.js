@@ -59,6 +59,16 @@
   }
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
+  // Which preset these settings are, or '' for custom. The highlighted preset is always
+  // worked out from the settings, so it can never disagree with what you hear.
+  function presetFor(settings) {
+    if (!settings || settings.syncBpm) return '';
+    for (const [id, p] of Object.entries(PRESETS)) {
+      if (Object.keys(p).every((k) => k === 'label' || settings[k] === p[k])) return id;
+    }
+    return '';
+  }
+
   // Evaluate a pattern at phase t (radians) -> {x, y, z}. Used by the popup visualizer.
   function positionAt(patternName, t) {
     const p = PATTERNS[patternName] || PATTERNS.circle;
@@ -234,7 +244,7 @@
 
   const api = {
     createEngine, DEFAULTS, PATTERNS, PRESETS,
-    speedToHz, hzToSpeed, secondsPerLap, bpmToSpeed, intensityToWet, positionAt,
+    speedToHz, hzToSpeed, secondsPerLap, bpmToSpeed, intensityToWet, positionAt, presetFor,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.EightDEngine = api;

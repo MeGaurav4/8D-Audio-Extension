@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.0
+Same sound, same buttons. Classic 8D and every other preset render bit-for-bit identical to v2.0.0.
+
+**Fixed**
+- The toolbar badge could keep saying "8D" after you reloaded the page, even though 8D was off. The page now reports its real state, so the badge is always right.
+- Double-clicking the on/off button could fire two switches. Clicks while it is switching are ignored.
+- The highlighted preset could disagree with your settings. It is now worked out from the settings themselves, so it's always true (move a slider back and the preset lights up again).
+- A slider change made just before ticking "Remember settings for this site" could be saved to the wrong place.
+- If the page stopped answering, a checkbox could stay ticked even though nothing was saved. It now snaps back and the popup says so.
+- File converter: adding files while a batch was converting could start a second run and convert the same file twice.
+
+**Better**
+- The popup shows clear states: Connecting…, Turning on…, Turning off…, Waiting for permission…, and a Try again button when the page can't be reached (no more reopening the popup).
+- Converter button shows Converting… while it works; files you add mid-run join the run.
+
+**Dev**
+- New `machines.js`: every mode (power, auto-start, settings scope, popup, converter file and batch) is an explicit state machine with allowed transitions in one place.
+- New `AGENTS.md`: a map of each machine, its events and its files, for anyone (or any coding tool) changing the code.
+- 39 automated tests, including new state-machine and popup checks.
+
 ## v2.0.0
 Your v1 sound is still the default: it's the **Classic 8D** preset.
 

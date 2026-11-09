@@ -1,6 +1,6 @@
 {
   "name": "8d-audio-extension",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Browser extension that turns YouTube, YouTube Music and any site into smooth 8D audio, plus an offline 8D file converter",
   "scripts": {
     "test": "node --test tests/*.test.js",

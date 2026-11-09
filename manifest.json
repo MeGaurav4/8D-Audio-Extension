@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "8D Audio Converter",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Turn YouTube, YouTube Music and any site's audio into smooth 8D audio, or convert your own songs to 8D files.",
   "permissions": [
     "activeTab",
@@ -45,7 +45,7 @@
         "https://*.youtube.com/*",
         "https://music.youtube.com/*"
       ],
-      "js": ["engine.js", "content.js"],
+      "js": ["engine.js", "machines.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

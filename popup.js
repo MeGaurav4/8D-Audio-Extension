@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const { DEFAULTS, PRESETS, PATTERNS, secondsPerLap, bpmToSpeed, positionAt } = window.EightDEngine;
+  const { DEFAULTS, PRESETS, PATTERNS, secondsPerLap, bpmToSpeed, positionAt, presetFor } = window.EightDEngine;
+  const { createMachine, DEFS } = window.EightDMachines;
   const $ = (id) => document.getElementById(id);
 
   const toggleButton = $('toggle');
@@ -23,7 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const isWeb = (url) => !!url && /^https?:\/\//.test(url);
 
   let tab = null;
-  let s = Object.assign({}, DEFAULTS, { enabled: false, preset: 'classic' });
+  let origin = '';
+  let s = Object.assign({}, DEFAULTS); // the page's settings, as last reported
+  let errorText = ''; // shown under the button; cleared on every successful step
+
+  // Everything the popup shows comes from this one machine (see AGENTS.md, POPUP).
+  const view = createMachine(DEFS.POPUP);
+  view.onChange(renderView);
 
   // ---------- messaging ----------
   function send(message) {
@@ -39,26 +46,43 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = await send({ action: 'getState' });
     if (state) return state;
     try {
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['engine.js', 'content.js'] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['engine.js', 'machines.js', 'content.js'] });
       state = await send({ action: 'getState' });
     } catch (e) { state = null; }
     return state;
   }
 
   // ---------- UI ----------
-  function showError(msg) {
-    errorBox.textContent = msg || '';
-    errorBox.classList.toggle('show', !!msg);
+  const VIEW = {
+    //                  button text                 button on?  live controls  "use on this site"
+    loading:              ['Connecting…',             false,      false,         false],
+    unsupported:          ['Not available on this page', false,   false,         false],
+    needsPermission:      ['Not on this site yet',    false,      false,         true],
+    requestingPermission: ['Waiting for permission…', false,      false,         true],
+    off:                  ['Enable 8D Audio',         true,       true,          false],
+    turningOn:            ['Turning on…',             false,      true,          false],
+    on:                   ['Disable 8D Audio',        true,       true,          false],
+    turningOff:           ['Turning off…',            false,      true,          false],
+    failed:               ['Try again',               true,       false,         false],
+  };
+  function renderView() {
+    const st = view.state;
+    const [text, clickable, showLive, showSite] = VIEW[st];
+    toggleButton.textContent = text;
+    toggleButton.disabled = !clickable;
+    toggleButton.classList.toggle('on', st === 'on' || st === 'turningOff');
+    toggleButton.setAttribute('aria-busy', String(['loading', 'turningOn', 'turningOff', 'requestingPermission'].includes(st)));
+    live.style.display = showLive ? '' : 'none';
+    if (!showLive) controlsDiv.classList.remove('visible');
+    enableSiteButton.style.display = showSite ? 'block' : 'none';
+    enableSiteButton.disabled = st === 'requestingPermission';
+    errorBox.textContent = errorText;
+    errorBox.classList.toggle('show', !!errorText);
   }
-  function setBadge(on) {
-    if (!tab) return;
-    chrome.action.setBadgeText({ tabId: tab.id, text: on ? '8D' : '' });
-    chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#ddff00' });
-    if (chrome.action.setBadgeTextColor) chrome.action.setBadgeTextColor({ tabId: tab.id, color: '#1e1e1e' });
-  }
-  function updateButtonText(enabled) {
-    toggleButton.textContent = enabled ? 'Disable 8D Audio' : 'Enable 8D Audio';
-    toggleButton.classList.toggle('on', !!enabled);
+  function fail(msg) {
+    errorText = msg;
+    view.send('LOST') || view.send('FAIL');
+    renderView();
   }
   function lapText() {
     const speed = s.syncBpm ? bpmToSpeed(s.bpm, s.beatsPerLap) : s.rotationSpeed;
@@ -77,7 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sliders.rotationSpeed.el.disabled = !!s.syncBpm;
     $('perSite').checked = !!s.perSite;
     $('autoStart').checked = !!s.autoStart;
-    document.querySelectorAll('.chip[data-preset]').forEach((b) => b.classList.toggle('active', b.dataset.preset === s.preset));
+    const preset = presetFor(s);
+    document.querySelectorAll('.chip[data-preset]').forEach((b) => b.classList.toggle('active', b.dataset.preset === preset));
   }
 
   // presets + patterns
@@ -90,9 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const patch = {};
       for (const k of Object.keys(p)) if (k !== 'label') patch[k] = p[k];
       patch.syncBpm = false;
-      Object.assign(s, patch, { preset: id });
-      render();
-      send({ action: 'set', patch, preset: id });
+      change(patch);
     });
     $('presets').appendChild(b);
   }
@@ -103,10 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
     $('pattern').appendChild(o);
   }
 
-  function change(patch) {
-    Object.assign(s, patch, { preset: '' }); // a manual tweak = custom
+  // Every settings change goes through here; the highlighted preset is derived from s.
+  async function change(patch) {
+    Object.assign(s, patch);
     render();
-    send({ action: 'set', patch, preset: '' });
+    const ok = await send({ action: 'set', patch });
+    if (!ok) fail('Lost the page. Refresh it and try again.');
   }
 
   for (const [k, sl] of Object.entries(sliders)) {
@@ -133,32 +158,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  $('perSite').addEventListener('change', async (e) => {
-    const st = await send({ action: 'setPerSite', value: e.target.checked });
-    if (st) { s = Object.assign(s, st); render(); }
-  });
-  $('autoStart').addEventListener('change', async (e) => {
-    const st = await send({ action: 'setAutoStart', value: e.target.checked });
-    if (st) { s = Object.assign(s, st); render(); }
-  });
-
-  $('resetControls').addEventListener('click', () => {
-    const patch = Object.assign({}, DEFAULTS);
-    Object.assign(s, patch, { preset: 'classic' });
+  // On failure the checkbox snaps back to what the page really has.
+  async function setOption(action, value) {
+    const st = await send({ action, value });
+    if (st) Object.assign(s, st);
     render();
-    send({ action: 'set', patch, preset: 'classic' });
-  });
+    if (!st) fail('Lost the page. Refresh it and try again.');
+  }
+  $('perSite').addEventListener('change', (e) => setOption('setPerSite', e.target.checked));
+  $('autoStart').addEventListener('change', (e) => setOption('setAutoStart', e.target.checked));
+
+  $('resetControls').addEventListener('click', () => change(Object.assign({}, DEFAULTS)));
 
   $('editControls').addEventListener('click', () => controlsDiv.classList.toggle('visible'));
   $('openConverter').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('converter.html') }));
 
   toggleButton.addEventListener('click', async () => {
-    const r = await send({ action: 'toggle' });
-    if (!r) { showError('Lost the page. Refresh it and try again.'); return; }
-    s.enabled = r.enabled;
-    updateButtonText(r.enabled);
-    setBadge(r.enabled);
-    showError(r.enabled ? '' : r.error);
+    if (view.is('failed')) { view.send('RETRY'); start(); return; }
+    if (!view.send('TOGGLE')) return; // already switching: ignore double clicks
+    const r = await send({ action: 'setEnabled', value: view.is('turningOn') });
+    if (!r) { fail('Lost the page. Refresh it and try again.'); return; }
+    errorText = r.enabled ? '' : (r.error || '');
+    view.send(r.enabled ? 'TURNED_ON' : (view.is('turningOn') ? 'REFUSED' : 'TURNED_OFF'));
+    renderView();
   });
 
   // ---------- visualizer ----------
@@ -189,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   async function vizLoop() {
-    const pos = s.enabled ? await send({ action: 'getPosition' }) : null;
+    const pos = view.is('on', 'turningOff') ? await send({ action: 'getPosition' }) : null;
     drawViz(pos);
     setTimeout(() => requestAnimationFrame(vizLoop), 50);
   }
@@ -201,40 +223,38 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelector('.footer span:last-child').textContent = 'v' + chrome.runtime.getManifest().version;
 
-  function unavailable(text) {
-    toggleButton.textContent = text;
-    toggleButton.disabled = true;
-    live.style.display = 'none';
+  enableSiteButton.addEventListener('click', async () => {
+    if (!view.send('REQUEST')) return;
+    // must be called straight from the click
+    const ok = await chrome.permissions.request({ origins: [origin] }).catch(() => false);
+    if (!ok) { view.send('DENIED'); return; }
+    await new Promise((r) => chrome.runtime.sendMessage({ action: 'siteEnabled', tabId: tab.id }, r));
+    view.send('GRANTED');
+    start();
+  });
+
+  // loading -> one of: unsupported, needsPermission, off, on, failed
+  async function start() {
+    errorText = '';
+    renderView();
+    if (!tab || !isWeb(tab.url)) { view.send('UNSUPPORTED'); return; }
+    origin = new URL(tab.url).origin + '/*';
+    $('host').textContent = new URL(tab.url).hostname;
+    if (!isYouTube(tab.url) && !(await chrome.permissions.contains({ origins: [origin] }))) {
+      view.send('NEEDS_PERMISSION');
+      return;
+    }
+    const state = await getStateOrInject();
+    if (!state) { fail('Couldn\'t reach this page. Refresh it and try again.'); return; }
+    s = Object.assign(s, state);
+    render();
+    view.send(state.enabled ? 'READY_ON' : 'READY_OFF');
   }
 
-  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+  renderView();
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     tab = tabs[0];
-    if (!tab || !isWeb(tab.url)) { unavailable('Not available on this page'); return; }
-    const origin = new URL(tab.url).origin + '/*';
-    $('host').textContent = new URL(tab.url).hostname;
-
-    if (!isYouTube(tab.url)) {
-      const granted = await chrome.permissions.contains({ origins: [origin] });
-      if (!granted) {
-        unavailable('Not on this site yet');
-        enableSiteButton.style.display = 'block';
-        enableSiteButton.addEventListener('click', async () => {
-          // must be called straight from the click
-          const ok = await chrome.permissions.request({ origins: [origin] });
-          if (!ok) return;
-          await new Promise((r) => chrome.runtime.sendMessage({ action: 'siteEnabled', tabId: tab.id }, r));
-          location.reload();
-        });
-        return;
-      }
-    }
-
-    const state = await getStateOrInject();
-    if (!state) { unavailable('Error: Refresh the page'); return; }
-    s = Object.assign(s, state);
-    updateButtonText(s.enabled);
-    setBadge(s.enabled);
-    render();
+    start();
     vizLoop();
   });
 });

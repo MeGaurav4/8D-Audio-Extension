@@ -48,6 +48,7 @@ A browser extension that processes audio in real time with the Web Audio API's H
 | File | What it does |
 |---|---|
 | `engine.js` | The 8D audio graph (shared by page, converter and tests) |
+| `machines.js` | Every mode the extension can be in, as explicit state machines (see `AGENTS.md`) |
 | `content.js` | Hooks the page's player to the engine, stores settings |
 | `popup.html/js` | Controls, presets, visualizer |
 | `background.js` | Shortcut, per-site scripts, first-run setup |
@@ -57,9 +58,11 @@ A browser extension that processes audio in real time with the Web Audio API's H
 ## Development
 ```bash
 npm install
-npm test        # offline audio renders + page script checks
+npm test        # offline audio renders, state machines, page script + popup checks
 npm run build   # build/…-chrome.zip and build/…-firefox.zip
 ```
+
+Working on the code? Read `AGENTS.md` first: it maps every state machine, its events and the rules that keep the sound unchanged.
 
 ## License
 MIT

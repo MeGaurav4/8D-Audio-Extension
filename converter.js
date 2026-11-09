@@ -1,13 +1,14 @@
 // File converter: decode -> render offline through the same 8D engine -> WAV download.
 (function () {
   'use strict';
-  const { createEngine, DEFAULTS, PRESETS, PATTERNS, secondsPerLap } = window.EightDEngine;
+  const { createEngine, DEFAULTS, PRESETS, PATTERNS, secondsPerLap, presetFor } = window.EightDEngine;
+  const { createMachine, DEFS } = window.EightDMachines;
   const { encodeWav } = window.EightDWav;
   const $ = (id) => document.getElementById(id);
 
   const s = Object.assign({}, DEFAULTS, { syncBpm: false });
-  let preset = 'classic';
-  const queue = []; // { file, row, done }
+  const queue = []; // { file, row, fsm: FILE machine (queued -> reading -> rendering -> done | failed) }
+  const batch = createMachine(DEFS.BATCH); // idle | running: one conversion run at a time
 
   const fields = {
     intensity: (v) => v,
@@ -24,6 +25,7 @@
     }
     $('lapValue').textContent = secondsPerLap(s.rotationSpeed).toFixed(1) + 's per lap';
     $('pattern').value = s.pattern;
+    const preset = presetFor(s);
     document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c.dataset.preset === preset));
   }
 
@@ -34,7 +36,6 @@
     b.textContent = p.label;
     b.onclick = () => {
       for (const k of Object.keys(p)) if (k !== 'label') s[k] = p[k];
-      preset = id;
       render();
     };
     $('presets').appendChild(b);
@@ -45,15 +46,14 @@
     $('pattern').appendChild(o);
   }
   for (const k of Object.keys(fields)) {
-    $(k).addEventListener('input', () => { s[k] = parseFloat($(k).value); preset = ''; render(); });
+    $(k).addEventListener('input', () => { s[k] = parseFloat($(k).value); render(); });
   }
-  $('pattern').addEventListener('change', (e) => { s.pattern = e.target.value; preset = ''; render(); });
+  $('pattern').addEventListener('change', (e) => { s.pattern = e.target.value; render(); });
 
   // start from the user's popup settings
   chrome.storage.sync.get(null, (g) => {
     for (const k of Object.keys(DEFAULTS)) if (g[k] !== undefined) s[k] = g[k];
     s.syncBpm = false;
-    preset = g.preset || 'classic';
     render();
   });
   render();
@@ -74,19 +74,22 @@
       row.innerHTML = '<div><div class="name"></div><div class="status">Ready</div></div><span class="action"></span>';
       row.querySelector('.name').textContent = file.name;
       $('list').appendChild(row);
-      queue.push({ file, row, done: false });
+      queue.push({ file, row, fsm: createMachine(DEFS.FILE) });
     }
     updateCount();
   }
   function updateCount() {
-    const todo = queue.filter((q) => !q.done).length;
+    const todo = queue.filter((q) => q.fsm.is('queued')).length;
     $('count').textContent = queue.length ? `${queue.length} file${queue.length > 1 ? 's' : ''}, ${todo} to convert` : 'No files yet';
-    $('convert').disabled = todo === 0;
+    // files added mid-run join the running batch, so the button stays off until it ends
+    $('convert').disabled = todo === 0 || batch.is('running');
+    $('convert').textContent = batch.is('running') ? 'Converting…' : 'Convert to 8D';
   }
 
   async function convertOne(item) {
     const status = item.row.querySelector('.status');
     const action = item.row.querySelector('.action');
+    item.fsm.send('START');
     status.textContent = 'Reading…';
     const bytes = await item.file.arrayBuffer();
     const decoder = new AudioContext();
@@ -96,6 +99,7 @@
     } finally {
       decoder.close();
     }
+    item.fsm.send('DECODED');
     const tail = s.reverb > 0 ? 2.5 : 0.2;
     const sr = decoded.sampleRate;
     const ctx = new OfflineAudioContext(2, Math.ceil((decoded.duration + tail) * sr), sr);
@@ -125,6 +129,7 @@
     const blob = new Blob([encodeWav(out)], { type: 'audio/wav' });
     const url = URL.createObjectURL(blob);
     const name = item.file.name.replace(/\.[^.]+$/, '') + ' (8D).wav';
+    item.fsm.send('FINISHED');
     status.textContent = `Done · ${(blob.size / 1048576).toFixed(1)} MB WAV`;
     const a = document.createElement('a');
     a.href = url; a.download = name; a.textContent = 'Download';
@@ -135,17 +140,20 @@
   }
 
   $('convert').onclick = async () => {
-    $('convert').disabled = true;
-    for (const item of queue) {
-      if (item.done) continue;
+    if (!batch.send('START')) return; // already converting
+    updateCount();
+    let item;
+    while ((item = queue.find((q) => q.fsm.is('queued')))) {
       try {
         await convertOne(item);
       } catch (e) {
         console.error(e);
+        item.fsm.send('FAIL');
         item.row.querySelector('.status').textContent = 'Couldn\'t read this file. Try MP3 or WAV.';
       }
-      item.done = true;
       updateCount();
     }
+    batch.send('FINISHED');
+    updateCount();
   };
 })();

@@ -15,6 +15,8 @@
     button:disabled { opacity: 0.55; cursor: default; }
     button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: normal; }
     #toggle { font-size: 15px; padding: 12px; }
+    #toggle[aria-busy="true"] { animation: pulse 1s ease-in-out infinite alternate; }
+    @keyframes pulse { from { opacity: 0.45; } to { opacity: 0.75; } }
     #toggle.on { background: var(--bg); color: var(--lime); outline: 2px solid var(--lime); }
     .error { color: #ffb4a8; font-size: 11px; margin-top: 6px; display: none; }
     .error.show { display: block; }
@@ -49,9 +51,9 @@
     <span id="host" class="host"></span>
   </div>
 
-  <button id="toggle">Enable 8D Audio</button>
+  <button id="toggle" disabled aria-busy="true">Connecting…</button>
   <button id="enableSite" class="ghost" style="display:none">Use 8D on this site</button>
-  <div id="error" class="error"></div>
+  <div id="error" class="error" role="status" aria-live="polite"></div>
 
   <div id="live">
     <canvas id="viz" width="120" height="120" title="Where the sound is around your head"></canvas>
@@ -116,9 +118,10 @@
   <button id="openConverter" class="ghost">Convert a song file to 8D</button>
   <div class="footer">
     <span>Shortcut <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>8</kbd></span>
-    <span>v2.0</span>
+    <span>v2.1</span>
   </div>
   <script src="engine.js"></script>
+  <script src="machines.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

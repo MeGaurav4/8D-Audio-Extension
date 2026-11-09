@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION=$(node -p "require('./manifest.json').version")
-FILES=(background.js engine.js content.js popup.html popup.js converter.html converter.js wav.js images)
+FILES=(background.js engine.js machines.js content.js popup.html popup.js converter.html converter.js wav.js images)
 mkdir -p build
 rm -rf build/tmp && mkdir -p build/tmp/chrome build/tmp/firefox
 

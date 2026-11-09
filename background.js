@@ -1,8 +1,9 @@
 // Service worker.
 // - First run: fill in defaults without wiping saved settings, load scripts into open tabs.
 // - Keyboard shortcut: toggle 8D in the current tab.
+// - Badge: shows "8D" on tabs where the page reports it is on (the page owns that state).
 // - "Any site": keep a content script registered for every site the user switched on.
-const FILES = ['engine.js', 'content.js'];
+const FILES = ['engine.js', 'machines.js', 'content.js'];
 const YT = ['https://*.youtube.com/*', 'https://music.youtube.com/*'];
 const scriptId = (origin) => 'site-' + origin.replace(/[^a-z0-9]/gi, '_');
 
@@ -48,7 +49,19 @@ chrome.permissions.onAdded.addListener(async (perms) => {
 });
 chrome.permissions.onRemoved.addListener(() => { syncSiteScripts().catch(() => {}); });
 
+function setBadge(tabId, on) {
+  chrome.action.setBadgeText({ tabId, text: on ? '8D' : '' });
+  if (!on) return;
+  chrome.action.setBadgeBackgroundColor({ tabId, color: '#ddff00' });
+  if (chrome.action.setBadgeTextColor) chrome.action.setBadgeTextColor({ tabId, color: '#1e1e1e' });
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === 'powerChanged' && sender.tab && sender.frameId === 0) {
+    setBadge(sender.tab.id, !!msg.enabled);
+    sendResponse({ ok: true });
+    return false;
+  }
   if (msg.action === 'siteEnabled' && msg.tabId) {
     syncSiteScripts()
       .catch(() => {})
@@ -63,10 +76,6 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'toggle-8d') return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
-  chrome.tabs.sendMessage(tab.id, { action: 'toggle' }, (res) => {
-    if (chrome.runtime.lastError || !res) return;
-    chrome.action.setBadgeText({ tabId: tab.id, text: res.enabled ? '8D' : '' });
-    chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#ddff00' });
-    if (chrome.action.setBadgeTextColor) chrome.action.setBadgeTextColor({ tabId: tab.id, color: '#1e1e1e' });
-  });
+  // the page reports the result back with 'powerChanged', which updates the badge
+  chrome.tabs.sendMessage(tab.id, { action: 'toggle' }, () => void chrome.runtime.lastError);
 });
